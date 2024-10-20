@@ -1,0 +1,105 @@
+---
+title: "mnb"
+author: "Alfazkhan"
+date: "2024-10-19"
+output: html_document
+---
+
+```{r}
+library(fpp2)
+library(readr)
+library(ggplot2)
+
+flightVolume <- read.csv('flightVolume.csv')
+FV <- flightVolume
+FV_ts <- ts(flightVolume$resshort, start = c(1976,1), frequency = 12)
+plot(FV_ts)
+
+
+# I am including the entire historical dataset from 1976 onwards to ensure that I use all available data for my analysis.
+
+# Hypothesis on Trend and Seasonality: After analyzing the time series graph, I observed an upward trend over time along with recurring seasonal patterns. Therefore, I hypothesize that the dataset has both trend and seasonality components.
+
+acf(FV_ts)
+FV_decompose <- decompose(FV_ts)
+plot(FV_decompose)
+summary(FV_ts)
+
+```
+
+```{r}
+library(forecast)
+FV_naive <- naive(FV_ts, h =12)
+plot(FV_naive, main = "Naive Forecast")
+naive_residue <- residuals(FV_naive)
+plot(naive_residue,main = "Residuals of Naive forecast")
+
+FV_maf <- ma(FV_ts,12)
+plot(FV_maf)
+maf_residue <- FV_ts -  FV_maf
+plot(maf_residue, main = "Residual of Moving Average Forecasting" )
+
+FV_ses <- ses(FV_ts, h=12)
+plot(FV_ses)
+ses_residue <- residuals(FV_ses)
+plot(ses_residue, main = "Residual of simple smoothing Forecasting")
+
+FV_hw <- HoltWinters(FV_ts)
+plot(FV_hw)
+hw_residue <- residuals(FV_hw)
+plot(hw_residue, main = "Residual of Holt Winters Forecasting")
+
+FV_decom <- stl(FV_ts, s.window = "periodic")
+plot(FV_decom)
+
+# Chose an Accuracy Measure: I decided to use RMSE (Root Mean Squared Error) to evaluate the accuracy of my models.
+# RMSE provides a clear idea of the average prediction error, penalizing larger errors more heavily, which is useful in capturing significant deviations.
+# Since RMSE has the same units as the original data, it makes the error easy to interpret and compare.
+
+
+###CAN YOU EXPLAIN IF THE BELOW CODE IS CORRECT OR WRONG? IF WRONG THEN HOW? THE ABOVE CODE IS WHAT YOU TAUGHT IN CLASS, HOWEVER I FOUND THE BELOW CODE ON THE INTERNET. THE ONLY DIFFERENCE I SEE IF THE IN THE PLOT YOU HAVE TAUGHT IN CLASS HAS A GREY RECTANGLE BOX INDICATING SOMETHING HOWEVER MY CODE BELOW JUST SHOWS THE GRAPH.
+#decomposed_add <- decompose(FV_ts, type = "additive")
+#decomposed_mult <- decompose(FV_ts, type = "multiplicative")
+#plot(decomposed_add)
+#plot(decomposed_mult)
+
+```
+
+
+``` {r}
+naive_acc <- accuracy(FV_naive)
+naive_rmse <- naive_acc[,"RMSE"]
+
+ses_acc <- accuracy(FV_ses)
+ses_rmse <- ses_acc[,"RMSE"]
+
+hw_forecast <- forecast(FV_hw, h = 12)
+hw_acc <- accuracy(hw_forecast)
+hw_rmse <- hw_acc[,"RMSE"]
+
+maf_acc <- accuracy(FV_maf, FV_ts)
+maf_rmse <- maf_acc[,"RMSE"]
+
+rmse_values <- c(naive_rmse, ses_rmse, hw_rmse, maf_rmse)
+model_names <- c("Naive", "Simple Exp Smoothing", "Holt-Winters", "Moving Average")
+
+rmse_df <- data.frame(Model = model_names, RMSE = rmse_values)
+print(rmse_df)
+rmse_df <- rmse_df[order(rmse_df$RMSE), ]
+
+barplot(rmse_df$RMSE,
+        names.arg = rmse_df$Model,
+        main = "RMSE of Forecasting Models",
+        ylab = "RMSE",
+        xlab = "Forecasting Models",
+        cex.names = 0.8)
+
+best_forecast <- forecast(FV_hw, h = 12)
+plot(best_forecast, main = "12-Month Forecast with Holt-Winters Model")
+
+# Forecast for the Next 12 Months: I used the Holt-Winters model to generate the forecast for the next 12 months.
+# The forecast includes point estimates and prediction intervals (range) for each month.
+# The range, represented by the prediction intervals, shows the expected variability of the forecast with 80% and 95% confidence levels.
+# This range allows me to quantify the uncertainty, and given the low RMSE and effective trend/seasonality handling by Holt-Winters, I feel confident in the reliability of these forecasts.
+
+```
